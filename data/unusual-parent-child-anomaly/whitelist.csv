@@ -1,0 +1,15 @@
+id,parent_path_regex,parent_basename,parent_command_line_regex,rationale
+B1,^C:\\Windows\\explorer\.exe$,explorer.exe,,Interactive shell parent
+B2,^C:\\Windows\\CCM\\ccmexec\.exe$,ccmexec.exe,,SCCM management agent parent
+B3,^C:\\Program Files \(x86\)\\Microsoft Intune Management Extension\\Microsoft\.Management\.Services\.IntuneWindowsAgent\.exe$,microsoft.management.services.intunewindowsagent.exe,,Intune management extension parent
+B4,^C:\\ProgramData\\chocolatey\\bin\\choco\.exe$,choco.exe,,Chocolatey package manager parent
+B5,^C:\\Program Files\\Windows Defender Advanced Threat Protection\\SenseIR\.exe$,senseir.exe,,Defender maintenance parent
+B6,^C:\\Users\\[^\\]+\\AppData\\Local\\Programs\\Microsoft VS Code\\Code\.exe$,code.exe,--ms-enable-electron-run-as-node,VSCode integrated terminal parent
+B7,^C:\\Program Files\\Microsoft VS Code\\Code\.exe$,code.exe,--ms-enable-electron-run-as-node,VSCode integrated terminal parent
+B8,^C:\\Program Files\\Git\\bin\\bash\.exe$,bash.exe,,Developer shell parent
+B9,^C:\\Program Files\\PowerShell\\7\\pwsh\.exe$,pwsh.exe,,PowerShell host parent
+B10,^C:\\Windows\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$,powershell.exe,,Windows PowerShell host parent
+B11,^C:\\Windows\\System32\\sdiagnhost\.exe$,sdiagnhost.exe,,Windows diagnostics parent
+B12,^C:\\Windows\\System32\\CompatTelRunner\.exe$,compattelrunner.exe,,Compatibility telemetry parent
+B13,^C:\\Program Files\\Microsoft Monitoring Agent\\Agent\\HealthService\.exe$,healthservice.exe,,Monitoring agent parent
+B14,^C:\\Windows\\System32\\WerFault\.exe$,werfault.exe,,Windows error reporting parent

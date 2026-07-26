@@ -1,0 +1,54 @@
+{
+  "name": "@aionsec/athanor",
+  "version": "0.1.0",
+  "description": "Raw security telemetry in, scored candidates out — a deterministic distillation pipeline for Zeek and Sysmon logs.",
+  "keywords": [
+    "security",
+    "telemetry",
+    "zeek",
+    "sysmon",
+    "detection",
+    "threat-hunting",
+    "distillation"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/aionsec/athanor#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aionsec/athanor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/aionsec/athanor/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "bin": {
+    "athanor": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "data",
+    "docs"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
+    "smoke": "bash scripts/smoke-dist.sh",
+    "smoke:install": "bash scripts/smoke-install.sh",
+    "test": "node --import tsx --test 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "yaml": "^2.8.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

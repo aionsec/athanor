@@ -1,0 +1,13 @@
+{
+  "ips": [
+    "203.0.113.10",
+    "198.51.100.200"
+  ],
+  "domains": [
+    "bad.example",
+    "api.bad.example"
+  ],
+  "hashes": [
+    "9f86d081884c7d659a2feaa0c55ad015"
+  ]
+}

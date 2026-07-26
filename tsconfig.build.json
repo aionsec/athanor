@@ -1,0 +1,28 @@
+{
+  // The distribution build: `src/` only, emitted to `dist/`.
+  //
+  // CRITICAL — the layout is load-bearing, not cosmetic. `src/lib/paths.ts` derives the
+  // package root as TWO levels up from itself, and every `dataPath()` loader (geo, lots,
+  // threat-intel, business-hours, the PSI/UPCA taxonomies and whitelists) resolves through
+  // it. `rootDir: "src"` + `outDir: "dist"` is what puts the compiled file at
+  // `dist/lib/paths.js` — two levels below the package root — so `data/` still resolves
+  // after `npm i -g athanor`. Flatten or nest it (e.g. by letting tsc infer rootDir, which
+  // would drop the files at `dist/src/…`) and the loaders quietly fall back to empty
+  // tables: no error, no warning, DIFFERENT SCORES. `scripts/smoke-dist.sh` exists to
+  // catch exactly that, by asserting the built CLI still reproduces the golden byte-for-byte.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    // Declarations ship (a future `exports` block makes athanor importable as a
+    // library); the two map kinds do NOT, because `files: ["dist","data"]` leaves
+    // `src/` out of the tarball and a source map pointing at files the package does
+    // not contain is dead weight that only ever misleads a debugger.
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "test", "scripts", "fixtures"]
+}

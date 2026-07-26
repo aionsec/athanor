@@ -1,0 +1,4 @@
+timezone: UTC
+workdays: [1, 2, 3, 4, 5]
+start_hour: 9
+end_hour: 17

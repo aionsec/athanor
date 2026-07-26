@@ -1,0 +1,7 @@
+# Path-based suspicious-child rules: a child executable run from one of these
+# locations is eligible for UPCA scoring even when its basename is unknown, and
+# scores at the rule's tier when the (parent,child) pair has no taxonomy row.
+# Regexes are matched case-insensitively against the full child process_path
+# and must be ^...$ anchored.
+path_regex,tier,score
+^.*\\appdata\\local\\npm-cache\\.*\.exe$,high,0.85

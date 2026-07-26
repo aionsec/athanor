@@ -1,0 +1,28 @@
+node_modules/
+dist/
+output/
+*.log
+*.tsbuildinfo
+coverage/
+*.tgz
+
+# Editors
+.vscode/
+.idea/
+
+# A run's own artifacts: athanor writes these into whatever directory it is run from.
+/candidates.json
+/caput.json
+/athanor.yaml
+# …except the vendored Zeek dialect fixtures: conn.log / ssl.log are COMMITTED
+# telemetry (Pin C's raw folder), not build noise.
+!fixtures/raw/*.log
+.DS_Store
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# local session cache + agent-spawned worktrees
+.claude/
