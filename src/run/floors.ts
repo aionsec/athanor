@@ -8,8 +8,9 @@
 // But a threshold that DELETES evidence without saying so is the thing this tool argues
 // against. So `applyEmitFloor` does not filter — it PARTITIONS, and returns both halves.
 // What falls below the floor becomes the caput mortuum, which the run counts in its
-// summary and `--discards` writes to disk. A floor set too high is invisible from the
-// output side; reading what it dropped is the only way to audit one.
+// summary and `--discards` writes to disk, each record stamped with the `emit_floor`
+// that cut it. A floor set too high is invisible from the output side; reading what it
+// dropped is the only way to audit one.
 //
 // The two parsers are split — block-shape check, then per-value parse — because a config
 // file is merged key by key, so each declared floor is validated on its own.
@@ -40,6 +41,17 @@ export function parseEmitFloorValue(type: string, value: unknown, configPath: st
   return num;
 }
 
+/**
+ * A discarded candidate, stamped with the floor that discarded it.
+ *
+ * The stamp is on the DISCARD only, never on an emitted candidate: `emit_floor` is a
+ * fact about the decision, not about the entity, and an emitted candidate's floor is
+ * the one it cleared rather than the one it met. `--discards` output is also the
+ * artifact a student opens on its own hours later, with no CLI summary on screen next
+ * to it — a discard pile that cannot say what cut it is asking to be taken on trust.
+ */
+export type DiscardedCandidate<T> = T & { emit_floor: number };
+
 export interface EmitFloorResult<T> {
   /** Candidates at or above the floor — what gets emitted. */
   kept: T[];
@@ -48,7 +60,7 @@ export interface EmitFloorResult<T> {
    * the worthless residue left in the athanor after distillation. Returned rather
    * than discarded so a student can see exactly what the floor cost them.
    */
-  caputMortuum: T[];
+  caputMortuum: DiscardedCandidate<T>[];
 }
 
 /**
@@ -69,13 +81,13 @@ export function applyEmitFloor<T extends PostEnrichmentCandidate>(
 
   const scoreField = `${candidateType}_score`;
   const kept: T[] = [];
-  const caputMortuum: T[] = [];
+  const caputMortuum: DiscardedCandidate<T>[] = [];
   for (const candidate of candidates) {
     const score = (candidate as unknown as Record<string, unknown>)[scoreField];
     if (typeof score !== 'number' || score >= floor) {
       kept.push(candidate);
     } else {
-      caputMortuum.push(candidate);
+      caputMortuum.push({ ...candidate, emit_floor: floor });
     }
   }
 

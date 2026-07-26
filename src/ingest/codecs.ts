@@ -110,6 +110,46 @@ function isTar(bytes: Uint8Array): boolean {
 const MAX_INFLATIONS = 4;
 
 /**
+ * How many bytes the BOM-less UTF-16 sniff reads. One JSON line's worth of ASCII is
+ * plenty of evidence, and a short file still gets the check on whatever it has.
+ */
+const UTF16_SNIFF_BYTES = 64;
+
+/**
+ * Is this UTF-16, and how do we know? `undefined` = it is not.
+ *
+ * The byte-order mark is the easy half, and the realistic Windows case (`Out-File`
+ * defaults to UTF-16LE **with** a BOM). But `iconv -t UTF-16LE` and several shippers
+ * write no BOM at all, and that file used to fall through to "malformed JSON line
+ * (Expected property name…)" — the one generic message the rest of this module exists
+ * to avoid. So the BOM-less form is sniffed on the shape UTF-16 ASCII always has: every
+ * byte on one side of each 2-byte pair is a NUL. JSON text contains no NUL, so nothing
+ * that is genuinely UTF-8 can match.
+ */
+function describeUtf16(bytes: Uint8Array): string | undefined {
+  if (bytes.length >= 2) {
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) return 'byte-order mark';
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) return 'byte-order mark';
+  }
+
+  const sniffed = Math.min(bytes.length - (bytes.length % 2), UTF16_SNIFF_BYTES);
+  // Under four code units there is not enough of a pattern to call it one.
+  if (sniffed < 8) return undefined;
+
+  let firstNuls = 0;
+  let secondNuls = 0;
+  for (let index = 0; index < sniffed; index += 2) {
+    if (bytes[index] === 0x00) firstNuls += 1;
+    if (bytes[index + 1] === 0x00) secondNuls += 1;
+  }
+  // All on one side and none on the other: big-endian and little-endian respectively.
+  const pairs = sniffed / 2;
+  const allOnOneSide = (firstNuls === pairs && secondNuls === 0)
+    || (secondNuls === pairs && firstNuls === 0);
+  return allOnOneSide ? 'no byte-order mark, but every second byte is a NUL' : undefined;
+}
+
+/**
  * Turns a telemetry file's BYTES into text.
  *
  * gzip is TRANSPARENT — `conn.log.gz` is what Zeek's own rotation writes, so a folder
@@ -158,12 +198,10 @@ export function decodeTelemetryBytes(bytes: Uint8Array, file: string): string {
     }
   }
 
-  if (
-    body.length >= 2
-    && ((body[0] === 0xff && body[1] === 0xfe) || (body[0] === 0xfe && body[1] === 0xff))
-  ) {
+  const utf16 = describeUtf16(body);
+  if (utf16 !== undefined) {
     throw new IngestError(
-      `${file}: this file is UTF-16 (byte-order mark), not UTF-8 — re-export it as UTF-8 `
+      `${file}: this file is UTF-16 (${utf16}), not UTF-8 — re-export it as UTF-8 `
       + '(PowerShell: `-Encoding utf8`) and ingest the result.',
     );
   }

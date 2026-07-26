@@ -15,8 +15,9 @@ coverage/
 /caput.json
 /athanor.yaml
 # …except the vendored Zeek dialect fixtures: conn.log / ssl.log are COMMITTED
-# telemetry (Pin C's raw folder), not build noise.
+# telemetry (Pin C's raw folder, and the second sample estate), not build noise.
 !fixtures/raw/*.log
+!fixtures/sample-estate/*.log
 .DS_Store
 
 # Secrets — never commit

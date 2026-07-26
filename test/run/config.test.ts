@@ -168,6 +168,58 @@ describe('athanor.yaml — the per-key deep merge', () => {
     assert.throws(() => fromYaml('distill_candidates: []\n'), /would distill nothing/);
   });
 
+  it('refuses a typo\'d emit_floors key instead of reporting it as applied', () => {
+    // The finding this suite exists to close: `beacn` was merged, counted in the
+    // summary as "1 key overridden", and inert — a student lowering a floor, seeing the
+    // override reported and seeing no new candidates would conclude there was nothing
+    // below the floor. The config layer checked shapes and ranges but never NAMES.
+    assert.throws(
+      () => fromYaml('emit_floors:\n  beacn: 0.2\n'),
+      (error: unknown) => /emit_floors\.beacn names no candidate type/.test((error as Error).message)
+        && /Valid candidate types: beacon, data_transfer, tls_anomaly, /
+          .test((error as Error).message),
+      'the refusal names the offending key and lists the ones that would have worked',
+    );
+
+    // Same for a removal: `emit_floors: {beacn: null}` removed nothing and said it had.
+    assert.throws(
+      () => fromYaml('emit_floors:\n  beacn: null\n'),
+      /emit_floors\.beacn names no candidate type/,
+    );
+  });
+
+  it('refuses a floor for a type the same config narrowed away', () => {
+    // The valid set is the RESOLVED candidate types, not the built-in five: a floor for
+    // a type this run does not distill is exactly as inert as a misspelled one.
+    assert.throws(
+      () => fromYaml('distill_candidates:\n  - beacon\nemit_floors:\n  tls_anomaly: 0.9\n'),
+      (error: unknown) => /emit_floors\.tls_anomaly names no candidate type/
+        .test((error as Error).message)
+        && /Valid candidate types: beacon$/m.test((error as Error).message),
+    );
+  });
+
+  it('refuses a presentation prefix keyed to no candidate type', () => {
+    assert.throws(
+      () => fromYaml('presentation_ids:\n  prefixes:\n    beacn: B\n'),
+      /presentation_ids\.prefixes\.beacn names no candidate type/,
+    );
+  });
+
+  it('refuses a distill_candidates entry athanor has no scorer for', () => {
+    // Previously this reached `resolveRunner` and left a raw Node stack trace on a
+    // student who mistyped one line of YAML. An unknown type in a config file is a USER
+    // error, and the config layer is where a user error gets named.
+    assert.throws(
+      () => fromYaml('distill_candidates:\n  - beacon\n  - not_a_real_type\n'),
+      (error: unknown) => /distill_candidates\[1\] is "not_a_real_type"/
+        .test((error as Error).message)
+        && /which athanor has no scorer for/.test((error as Error).message)
+        && /Valid candidate types: beacon, data_transfer, tls_anomaly, /
+          .test((error as Error).message),
+    );
+  });
+
   it('reports nothing changed for a config that only restates the defaults', () => {
     const { config, summary } = fromYaml(
       'emit_floors:\n  beacon: 0.4\n  powershell_invocation_anomaly: 0.6\n'

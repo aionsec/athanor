@@ -337,7 +337,7 @@ candidate carries:
 | `<type>_score` | the composite, in `[0, 1]`, rounded to 4 decimals |
 | feature fields | every input to that score, per type |
 | `evidence.constituent_event_ids` | the ids of every event the candidate was built from |
-| `attribution` | host, user, process identity, a `confidence` of `full` / `partial_time_skew` / `partial_multi_process` / `inferred` / `unavailable`, and `data_quality_flags` naming why |
+| `attribution` | **network types only** (`beacon`, `data_transfer`, `tls_anomaly`): host, user, process identity, a `confidence` of `full` / `partial_time_skew` / `partial_multi_process` / `inferred` / `unavailable`, and `data_quality_flags` naming why. The two process types are built from EID 1 events that already carry process identity, so they have no bridge to walk and no `attribution` block |
 | `enrichment` | the stage-4 labels applicable to that candidate type |
 
 The content-derived id is computed over the candidate with its own id field removed, using

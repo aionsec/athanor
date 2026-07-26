@@ -91,9 +91,11 @@ Exit codes: 0 = distilled, 1 = bad usage, unreadable input or unwritable output.
 ## What comes out
 
 Each candidate is a JSON object carrying its own score, the features that produced the
-score, the ids of every event it was built from, an attribution block (which process on
-which host, and how confident that link is), and an enrichment block. Nothing is a bare
-number without its inputs.
+score, the ids of every event it was built from, and an enrichment block. The three
+network types also carry an attribution block (which process on which host, and how
+confident that link is); the two process types are built from Sysmon EID 1 and already
+name their process, so there is nothing to attribute. Nothing is a bare number without
+its inputs.
 
 | Type | Reads | Scores |
 | --- | --- | --- |
@@ -103,10 +105,11 @@ number without its inputs.
 | `unusual_parent_child_anomaly` | Sysmon EID 1 | parent-child process pairs against a tiered taxonomy |
 | `powershell_invocation_anomaly` | Sysmon EID 1 (+ EID 7) | rename, custom host, parent and command-line dimensions |
 
-Every candidate then passes through the same back half: attribution against Sysmon EID 3,
-local frequency analysis over nine entity tables, and enrichment (rarity, first-seen,
-geo, business-hours proportion, threat-intel and protocol-mismatch flags). See
-[docs/design.md](docs/design.md) for the stage-by-stage account.
+Every candidate then passes through the same back half: attribution against Sysmon EID 3
+for the three network types, local frequency analysis over nine entity tables, and
+enrichment (rarity, first-seen, geo, business-hours proportion, threat-intel and
+protocol-mismatch flags). See [docs/design.md](docs/design.md) for the stage-by-stage
+account.
 
 ## Supported inputs
 

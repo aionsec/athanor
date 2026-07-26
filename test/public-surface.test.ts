@@ -16,7 +16,10 @@
 //      pack manifest of an un-rebuilt tree would wave it through;
 //   3. all of `test/` and `scripts/` — not published, but part of the public tree;
 //   4. `README.md`, `docs/`, and `fixtures/README.md` — scanned by name so they stay
-//      covered even if the `files` list changes underneath them.
+//      covered even if the `files` list changes underneath them;
+//   5. `fixtures/sample-estate/` — a vendored second dataset. Its files are rendered log
+//      records rather than prose, but they carry process paths, user names and command
+//      lines, and any of those is somewhere an internal name arrives by accident.
 //
 // Each banned term is spelled in fragments (`'HU' + 'NT'`) for one reason: this file is
 // inside the scanned set, so a term written out in full here would fail its own scan.
@@ -282,5 +285,12 @@ describe('public surface', () => {
       ...walk(join(ROOT, 'docs')),
     ];
     assertClean('README and docs', prose);
+  });
+
+  it('the vendored second estate carries no internal references', () => {
+    // Telemetry is authored content too: a hostname, a user or a command line in a
+    // rendered log is as public as a sentence in the README, and this dataset came out
+    // of a private tree rather than out of the scenario renderer in this repository.
+    assertClean('fixtures/sample-estate/', walk(join(ROOT, 'fixtures', 'sample-estate')));
   });
 });

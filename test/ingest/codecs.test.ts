@@ -245,6 +245,36 @@ describe('codecs — a body athanor cannot read is named, not blamed on JSON', (
     );
   });
 
+  it('refuses a BOM-LESS UTF-16 export with the same advice', () => {
+    // `iconv -t UTF-16LE` writes no BOM, and neither do several shippers. This used to
+    // fall through to "malformed JSON line (Expected property name\u2026)" \u2014 the one generic
+    // message the rest of this module exists to avoid \u2014 because detection was keyed on
+    // the mark rather than on the encoding.
+    for (const encoding of ['utf16le', 'utf16be'] as const) {
+      const bytes = Buffer.from(CONN_LINE, 'utf16le');
+      // Node writes only LE; swap the pairs by hand for the big-endian case.
+      if (encoding === 'utf16be') bytes.swap16();
+
+      assert.throws(
+        () => decodeTelemetryBytes(bytes, 'conn.log'),
+        (error: unknown) => error instanceof IngestError
+          && /this file is UTF-16 \(no byte-order mark/.test((error as Error).message)
+          // The actionable half is identical to the BOM case: same fix, same flag.
+          && /not UTF-8 \u2014 re-export it as UTF-8 \(PowerShell: `-Encoding utf8`\)/
+            .test((error as Error).message),
+        `BOM-less ${encoding} must be named, not left to the JSON parser`,
+      );
+    }
+  });
+
+  it('does not mistake ordinary UTF-8 JSON for UTF-16', () => {
+    // The sniff keys on NULs, which JSON text cannot contain \u2014 but the guard is worth
+    // pinning, because a false positive here refuses a perfectly good log.
+    assert.equal(decodeTelemetryBytes(Buffer.from(CONN_LINE, 'utf-8'), 'conn.log'), CONN_LINE);
+    // And a file too short to show a pattern is passed through rather than guessed at.
+    assert.equal(decodeTelemetryBytes(Buffer.from('{}\n', 'utf-8'), 'x.log'), '{}\n');
+  });
+
   it('strips a UTF-8 BOM instead of dying on it', () => {
     assert.equal(stripBom('\uFEFF{}'), '{}');
     assert.equal(stripBom('{}'), '{}');

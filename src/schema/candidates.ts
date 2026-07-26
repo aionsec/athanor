@@ -24,6 +24,25 @@ export type CandidateType =
   | 'powershell_invocation_anomaly'
   | 'unusual_parent_child_anomaly';
 
+/**
+ * The same five types as a VALUE, in canon emit order.
+ *
+ * A union is invisible at runtime, and the config layer has to answer a runtime
+ * question — "is `beacn` a candidate type?" — before a typo becomes a threshold that
+ * silently does nothing. This list is the answer, and it lives here rather than in
+ * `src/run/` because both the config parser and the runner registry read it and
+ * neither may import the other. `runner.ts` keys its registry by `CandidateType`, so a
+ * type added to the union without a runner fails to compile; `test/run/runner.test.ts`
+ * pins the two lists against each other in the other direction.
+ */
+export const CANDIDATE_TYPES = [
+  'beacon',
+  'data_transfer',
+  'tls_anomaly',
+  'unusual_parent_child_anomaly',
+  'powershell_invocation_anomaly',
+] as const satisfies readonly CandidateType[];
+
 // ─── Layer 3: Attribution ───────────────────────────────────
 
 export type CandidateAttributionConfidence =

@@ -9,7 +9,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { assignPresentationIds } from '../../src/run/presentation.js';
-import { runBackHalf, runPipeline } from '../../src/run/runner.js';
+import { REGISTERED_CANDIDATE_TYPES, runBackHalf, runPipeline } from '../../src/run/runner.js';
+import { CANDIDATE_TYPES } from '../../src/schema/candidates.js';
 import { repoRoot } from '../../src/lib/paths.js';
 import type { TelemetryEvent } from '../../src/schema/events.js';
 import type { PostEnrichmentEvent } from '../../src/pipeline/types/post-enrichment-event.js';
@@ -134,6 +135,25 @@ describe('athanor pipeline runner', () => {
     assert.equal(result.caputMortuum[0].type, 'data_transfer');
     assert.match(result.caputMortuum[0].candidate_id, /^DTR-[0-9a-f]{16}$/);
     assert.equal('pipeline_candidate_id' in result.caputMortuum[0], false);
+    // …and the floor that cut it. `--discards` output is read on its own hours later,
+    // with no run summary next to it to say what the threshold was.
+    assert.equal(result.caputMortuum[0].emit_floor, 0.99);
+    assert.ok(
+      result.candidates.every((candidate) => !('emit_floor' in candidate)),
+      'the stamp is on the discard, never on what was emitted',
+    );
+  });
+
+  it('registers a runner for every candidate type the config layer accepts', () => {
+    // `config.ts` validates a user's `distill_candidates` against `CANDIDATE_TYPES`,
+    // and cannot import this module to ask what is actually implemented. The typed
+    // registry catches drift one way (a union member with no runner will not compile);
+    // this catches the other (a name the config would accept and the spine could not
+    // dispatch, which is the raw-stack-trace path all over again).
+    assert.deepEqual(
+      [...REGISTERED_CANDIDATE_TYPES].sort(),
+      [...CANDIDATE_TYPES].sort(),
+    );
   });
 
   it('assignPresentationIds ranks per type by score desc with hash-id tiebreak', () => {

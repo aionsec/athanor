@@ -35,7 +35,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import { describeSkippedEntries, ingestFolder, type IngestResult } from './ingest/index.js';
+import {
+  describeSkippedEntries,
+  explainSkippedEntries,
+  ingestFolder,
+  type IngestResult,
+} from './ingest/index.js';
 import { canonicalJsonWithRounding } from './lib/canonical-json.js';
 import { nodeVersionComplaint } from './lib/node-version.js';
 import { repoRoot } from './lib/paths.js';
@@ -267,10 +272,9 @@ function summaryLines(
   // logs left out of the run is partial telemetry with a green exit code.
   if (ingested.skipped.length > 0) {
     lines.push(
-      `warning: the scan passed over ${describeSkippedEntries(ingested.skipped)} — athanor `
-      + 'ingests the files IN the folder you name, and does not descend into it; a config '
-      + 'file is configuration, not evidence. Anything listed here contributed no evidence '
-      + 'to this run.',
+      `warning: the scan passed over ${describeSkippedEntries(ingested.skipped)} — `
+      + `${explainSkippedEntries(ingested.skipped)}. Anything listed here contributed no `
+      + 'evidence to this run.',
     );
   }
 

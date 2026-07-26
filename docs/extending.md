@@ -26,7 +26,8 @@ If athanor sent you here with that message, this is the section you want.
 
 ```
 conn.log:1: expected numeric zeek "ts" (epoch seconds), got "1773057630" — this is a
-NUMBER written as a string, which usually means the whole export quotes every field
+NUMBER written as a string, which usually means the whole export quotes every field;
+athanor wants JSON numbers here. See docs/extending.md for writing a converter.
 ```
 
 Some log shippers render every field as a string, so `"ts": 1773057630.0` arrives as

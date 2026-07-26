@@ -30,8 +30,9 @@ import type { ThreatIntelFeed } from '../pipeline/enrich-candidates/threat-intel
 import type { LfaTables } from '../pipeline/types/lfa-tables.js';
 import type { PostEnrichmentCandidate } from '../pipeline/types/post-enrichment-candidate.js';
 import type { PostEnrichmentEvent } from '../pipeline/types/post-enrichment-event.js';
+import type { CandidateType } from '../schema/candidates.js';
 import { type AthanorConfig, resolveAthanorConfig } from './config.js';
-import { applyEmitFloor } from './floors.js';
+import { applyEmitFloor, type DiscardedCandidate } from './floors.js';
 import { assignPresentationIds } from './presentation.js';
 import {
   enrichEventsForRun,
@@ -45,13 +46,22 @@ import { runPowerShellInvocationAnomalyDistillation } from './runners/powershell
 import { runTlsAnomalyDistillation } from './runners/tls-anomaly-distillation.js';
 import { runUnusualParentChildAnomalyDistillation } from './runners/unusual-parent-child-anomaly-distillation.js';
 
-const RUNNER_BY_CANDIDATE: Record<string, DistillationRunner> = {
+/**
+ * Keyed by `CandidateType` rather than by `string`: a type added to the union without
+ * a runner then fails to compile instead of failing at the dispatch below. The other
+ * direction — `CANDIDATE_TYPES` (the value list `config.ts` validates against) naming
+ * a type this map does not — is pinned in `test/run/runner.test.ts`.
+ */
+const RUNNER_BY_CANDIDATE: Record<CandidateType, DistillationRunner> = {
   beacon: runBeaconDistillation,
   data_transfer: runDataTransferDistillation,
   powershell_invocation_anomaly: runPowerShellInvocationAnomalyDistillation,
   unusual_parent_child_anomaly: runUnusualParentChildAnomalyDistillation,
   tls_anomaly: runTlsAnomalyDistillation,
 };
+
+/** Every candidate type a runner is registered for. The config layer's valid set. */
+export const REGISTERED_CANDIDATE_TYPES: readonly string[] = Object.keys(RUNNER_BY_CANDIDATE);
 
 /** A candidate that survived its emit floor and carries a presentation id. */
 export type EmittedCandidate = PostEnrichmentCandidate & { pipeline_candidate_id?: string };
@@ -63,9 +73,10 @@ export interface PipelineRunResult {
    * The emit-floor discard pile — candidates that were scored, attributed and
    * stage-4 enriched, then dropped for scoring below their type's floor. They keep
    * their deterministic `candidate_id`: presentation ids are only assigned to what
-   * is emitted.
+   * is emitted. Each carries the `emit_floor` that cut it, so the pile is legible
+   * without the run summary beside it.
    */
-  caputMortuum: PostEnrichmentCandidate[];
+  caputMortuum: DiscardedCandidate<PostEnrichmentCandidate>[];
   events: PostEnrichmentEvent[];
   lfaTables: LfaTables;
   applicableLabels: ReadonlySet<EnrichmentLabel>;
@@ -77,7 +88,10 @@ export interface RunPipelineOptions extends Partial<AthanorConfig> {
 }
 
 function resolveRunner(candidateType: string): DistillationRunner {
-  const runner = RUNNER_BY_CANDIDATE[candidateType];
+  const runner = RUNNER_BY_CANDIDATE[candidateType as CandidateType];
+  // Unreachable from a config file — `parseDistillCandidates` refuses an unknown type
+  // with a CliError first. Reaching it means a PROGRAMMATIC caller passed a bad type,
+  // which is a defect, and the stack is what a defect should leave.
   if (!runner) {
     throw new Error(`No per-candidate distillation runner registered for candidate type: ${candidateType}`);
   }
@@ -98,7 +112,7 @@ function distill(
   }
 
   const allCandidates: PostEnrichmentCandidate[] = [];
-  const caputMortuum: PostEnrichmentCandidate[] = [];
+  const caputMortuum: DiscardedCandidate<PostEnrichmentCandidate>[] = [];
   const allApplicableLabels = new Set<EnrichmentLabel>();
   let sharedContext: Pick<PipelineRunResult, 'events' | 'lfaTables'> | null = null;
 

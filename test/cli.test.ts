@@ -357,6 +357,40 @@ describe('athanor CLI — the failure paths', () => {
     assert.match(run.stderr, /cannot read config .*emit_floors\.beacon must be a number in \[0, 1\]/);
   });
 
+  it('exits 1 on a typo\'d emit_floors key rather than running with it inert', () => {
+    const dir = scratch('typo-floor-key');
+    writeTinyConnFolder(dir);
+    const configPath = join(dir, 'athanor.yaml');
+    writeFileSync(configPath, 'emit_floors:\n  beacn: 0.2\n');
+
+    const run = runCli([dir, '-o', join(dir, 'out.json'), '--config', configPath]);
+
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, /emit_floors\.beacn names no candidate type/);
+    assert.match(run.stderr, /Valid candidate types: beacon, data_transfer/);
+    assert.equal(existsSync(join(dir, 'out.json')), false, 'nothing ran on a bad config');
+  });
+
+  it('exits 1 on an unknown distill_candidates type, with no stack trace', () => {
+    // The reproduction from the pre-publish validation run: this used to escape the
+    // CliError path entirely and print `resolveRunner`'s throw, five internal frames and
+    // a Node version banner at someone who mistyped one line of YAML.
+    const dir = scratch('bogus-candidate-type');
+    writeTinyConnFolder(dir);
+    const configPath = join(dir, 'athanor.yaml');
+    writeFileSync(configPath, 'distill_candidates:\n  - beacon\n  - not_a_real_type\n');
+
+    const run = runCli([dir, '-o', join(dir, 'out.json'), '--config', configPath]);
+
+    assert.equal(run.status, 1);
+    assert.match(run.stderr, /^athanor: cannot read config /, 'one clean athanor: line');
+    assert.match(run.stderr, /distill_candidates\[1\] is "not_a_real_type"/);
+    assert.match(run.stderr, /Valid candidate types: beacon, data_transfer/);
+    assert.doesNotMatch(run.stderr, /^\s+at /m, 'no stack frames');
+    assert.doesNotMatch(run.stderr, /No per-candidate distillation runner registered/);
+    assert.doesNotMatch(run.stderr, /Node\.js v/);
+  });
+
   it('exits 1 when the output cannot be written', () => {
     const dir = scratch('unwritable');
     writeTinyConnFolder(dir);

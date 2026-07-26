@@ -285,6 +285,33 @@ export function describeSkippedEntries(skipped: ReadonlyArray<SkippedEntry>, lim
 }
 
 /**
+ * WHY each kind of entry was passed over, one clause per kind actually present.
+ *
+ * The reasons do not share an explanation: a subdirectory was skipped because the scan
+ * does not descend, a config file because configuration is not evidence. Printing both
+ * sentences every time hands the reader the other case's answer and makes them work out
+ * which half applies to them.
+ */
+const SKIP_EXPLANATION: Record<SkipReason, string> = {
+  'subdirectory': 'athanor ingests the files IN the folder you name and does not descend into it',
+  'symlink to a directory':
+    'athanor ingests the files IN the folder you name and does not descend into it, '
+    + 'through a link or otherwise',
+  'config file': 'a config file is configuration, not evidence',
+  'broken symlink': 'a link with nothing at the other end has no bytes to read',
+  'not a regular file': 'athanor reads regular files; a device, socket or fifo is not telemetry',
+};
+
+/** The explanation clause(s) for a skip set, in the order the reasons are declared. */
+export function explainSkippedEntries(skipped: ReadonlyArray<SkippedEntry>): string {
+  const present = new Set(skipped.map((entry) => entry.reason));
+  return (Object.keys(SKIP_EXPLANATION) as SkipReason[])
+    .filter((reason) => present.has(reason))
+    .map((reason) => SKIP_EXPLANATION[reason])
+    .join('; ');
+}
+
+/**
  * Which entries of an `events.json` array `loadEvents` did not admit.
  *
  * Derived rather than re-validated: `loadEvents` keeps input order and stamps each

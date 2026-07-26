@@ -17,10 +17,17 @@
 // So `emit_floors: {beacon: 0.2}` lowers the beacon floor and leaves the other
 // three standing, and `emit_floors: {tls_anomaly: null}` deletes the TLS floor and
 // leaves the rest. A config is read as what it says, not as what it forgot to say.
+//
+// And a key it says that matches NOTHING is an error, not a shrug: `emit_floors:
+// {beacn: 0.2}` is refused here rather than merged, reported as applied and left
+// inert. Names are checked against the candidate types the run distills, the same way
+// values are checked against their ranges.
+//
 // The surface is deliberately small: candidate types, emit floors, presentation ids.
 // Scorer weights and thresholds are NOT reachable from here — see `docs/design.md`.
 import { existsSync, readFileSync } from 'node:fs';
 import { parse as parseYaml } from 'yaml';
+import { CANDIDATE_TYPES } from '../schema/candidates.js';
 import { assertEmitFloorsMapping, parseEmitFloorValue } from './floors.js';
 
 export interface PresentationIdConfig {
@@ -137,10 +144,47 @@ function parseDistillCandidates(value: unknown, configPath: string): string[] {
         + `distill_candidates[${index}] must be a non-empty string`,
       );
     }
-    return entry.trim();
+    const type = entry.trim();
+    // A name is checked HERE, where the config is read, and not left to the runner
+    // registry: `resolveRunner` throwing three frames deep is an athanor defect
+    // surfacing a Node stack trace at a student who mistyped one line of YAML.
+    if (!(CANDIDATE_TYPES as readonly string[]).includes(type)) {
+      throw new Error(
+        `Invalid scenario distillation config at ${configPath}: `
+        + `distill_candidates[${index}] is "${type}", which athanor has no scorer for. `
+        + `Valid candidate types: ${CANDIDATE_TYPES.join(', ')}`,
+      );
+    }
+    return type;
   });
 
   return dedupeOrdered(parsed);
+}
+
+/**
+ * The one thing the config layer never used to check: a KEY.
+ *
+ * Shapes and value ranges were validated; names were taken on trust — so
+ * `emit_floors: {beacn: 0.2}` was accepted, counted in the "1 key overridden" summary,
+ * and did nothing. A threshold that silently does nothing is the same failure as a
+ * threshold that silently deletes: the run reports a decision nobody's config made.
+ *
+ * The valid set is the RESOLVED candidate types, not the built-in five, so a config
+ * that narrows `distill_candidates` may only name floors and prefixes for the types
+ * it still distills.
+ */
+function assertCandidateTypeKey(
+  type: string,
+  dottedKey: string,
+  validTypes: readonly string[],
+  configPath: string,
+): void {
+  if (validTypes.includes(type)) return;
+  throw new Error(
+    `Invalid scenario config at ${configPath}: ${dottedKey} names no candidate type this run `
+    + 'distills, so it would be reported as applied and change nothing. Valid candidate '
+    + `types: ${validTypes.join(', ')}`,
+  );
 }
 
 // ─── athanor config resolution ───
@@ -166,6 +210,7 @@ export interface ResolvedAthanorConfig {
 function mergeEmitFloors(
   raw: unknown,
   base: Record<string, number>,
+  validTypes: readonly string[],
   configPath: string,
   summary: ConfigMergeSummary,
 ): Record<string, number> {
@@ -180,6 +225,9 @@ function mergeEmitFloors(
 
   const merged = { ...base };
   for (const [type, value] of Object.entries(raw as Record<string, unknown>)) {
+    // Before the value, and before either branch touches the summary: a floor keyed to
+    // a name nothing matches is inert whether it sets one or removes one.
+    assertCandidateTypeKey(type, `emit_floors.${type}`, validTypes, configPath);
     if (value === null) {
       delete merged[type];
       summary.removed.push(`emit_floors.${type}`);
@@ -195,6 +243,7 @@ function mergeEmitFloors(
 function mergePresentationIds(
   raw: unknown,
   base: PresentationIdConfig | null,
+  validTypes: readonly string[],
   configPath: string,
   summary: ConfigMergeSummary,
 ): PresentationIdConfig | null {
@@ -240,6 +289,12 @@ function mergePresentationIds(
       );
     }
     for (const [type, value] of Object.entries(prefixMap)) {
+      assertCandidateTypeKey(
+        type,
+        `presentation_ids.prefixes.${type}`,
+        validTypes,
+        configPath,
+      );
       if (value === null) {
         delete prefixes[type];
         summary.removed.push(`presentation_ids.prefixes.${type}`);
@@ -285,15 +340,20 @@ export function parseAthanorConfigWithSummary(
     summary.overridden.push('distill_candidates');
   }
 
+  // `distill_candidates` is parsed FIRST so the two mappings below can be validated
+  // against the types this run will actually distill, rather than against the built-in
+  // five — a narrowed run has a narrower set of legal floor and prefix keys.
   resolved.emitFloors = mergeEmitFloors(
     config['emit_floors'],
     resolved.emitFloors,
+    resolved.candidateTypes,
     configPath,
     summary,
   );
   resolved.presentationIds = mergePresentationIds(
     config['presentation_ids'],
     resolved.presentationIds,
+    resolved.candidateTypes,
     configPath,
     summary,
   );
