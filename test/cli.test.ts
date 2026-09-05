@@ -4,14 +4,16 @@
 // is its argv, its exit code, its stderr and the bytes it leaves on disk, and an
 // in-process call would test none of those. Every case here spawns node.
 //
-// The expensive case (the full `fixtures/raw/` folder) runs exactly once and asserts
+// The full `fixtures/raw/` case asserts
 // byte-equality against the same golden Pin C uses: the CLI must be a thin shell over
 // the library, so anything it adds — a stray field, a different serializer, a config
-// it forgot to pass — shows up as a diff. Every other case runs against a two-line
+// it forgot to pass — shows up as a diff. The nested-output regression also uses
+// the full fixture; the remaining cases run against a two-line
 // micro-fixture so the error paths stay cheap.
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -165,6 +167,28 @@ describe('athanor CLI — the happy path', () => {
       new RegExp(`wrote ${realpathSync(written).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'),
       'the summary names the absolute path it wrote',
     );
+  });
+
+  it('creates separate two-level output directories without changing either artifact or summary', () => {
+    const dir = scratch('nested-outputs');
+    const direct = runCli([RAW_DIR, '--discards', 'caput.json'], dir);
+    assert.equal(direct.status, 0, direct.stderr);
+    assert.equal(existsSync(join(dir, 'out')), false);
+    assert.equal(existsSync(join(dir, 'discards')), false);
+
+    const nested = runCli([
+      RAW_DIR, '-o', 'out/deep/candidates.json', '--discards', 'discards/deep/caput.json',
+    ], dir);
+    assert.equal(nested.status, 0, nested.stderr);
+    const hash = (file: string): string => createHash('sha256')
+      .update(readFileSync(join(dir, file))).digest('hex');
+    assert.equal(hash('out/deep/candidates.json'), hash('candidates.json'));
+    assert.equal(hash('discards/deep/caput.json'), hash('caput.json'));
+    assert.equal(readFileSync(join(dir, 'out/deep/candidates.json'), 'utf-8'), GOLDEN);
+    const summaryWithoutPaths = (text: string): string => text.split('\n')
+      .filter((line) => !line.startsWith('wrote ')).join('\n');
+    assert.equal(summaryWithoutPaths(nested.stderr), summaryWithoutPaths(direct.stderr));
+    assert.equal(nested.stdout, direct.stdout);
   });
 
   it('applies --config instead of the baked course-canon defaults', () => {
@@ -393,13 +417,39 @@ describe('athanor CLI — the failure paths', () => {
 
   it('exits 1 when the output cannot be written', () => {
     const dir = scratch('unwritable');
-    writeTinyConnFolder(dir);
+    const telemetry = join(dir, 'telemetry');
+    mkdirSync(telemetry);
+    writeTinyConnFolder(telemetry);
+    const blocker = join(dir, 'not-a-directory');
+    writeFileSync(blocker, 'keep this file');
 
-    const run = runCli([dir, '-o', join(dir, 'no-such-dir', 'out.json')]);
+    const run = runCli([telemetry, '-o', join(blocker, 'deep', 'out.json')]);
 
     assert.equal(run.status, 1);
     assert.match(run.stderr, /athanor: cannot write candidates to .*out\.json/);
+    assert.doesNotMatch(run.stderr, /^\s+at /m, 'no stack trace for a filesystem error');
+    assert.equal(readFileSync(blocker, 'utf-8'), 'keep this file');
   });
+
+  for (const discards of [false, true]) {
+    it(`keeps the write error when the ${discards ? 'discards' : 'candidates'} target is a directory`, () => {
+      const dir = scratch('directory-target');
+      const telemetry = join(dir, 'telemetry');
+      mkdirSync(telemetry);
+      writeTinyConnFolder(telemetry);
+      const target = join(dir, 'target.json');
+      mkdirSync(target);
+      const args = discards
+        ? [telemetry, '-o', join(dir, 'candidates.json'), '--discards', target]
+        : [telemetry, '-o', target];
+      const run = runCli(args);
+      assert.equal(run.status, 1);
+      assert.match(run.stderr, discards
+        ? /^athanor: cannot write the caput mortuum to .*target\.json:/
+        : /^athanor: cannot write candidates to .*target\.json:/);
+      assert.doesNotMatch(run.stderr, /^\s+at /m);
+    });
+  }
 
   it('exits 1 with the usage text when no folder is given', () => {
     const run = runCli([]);

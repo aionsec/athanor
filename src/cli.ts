@@ -32,8 +32,8 @@
  * thresholds nobody can account for afterwards are the same problem as silence.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
   describeSkippedEntries,
@@ -214,6 +214,7 @@ function configSummaryLine(configPath: string, summary: ConfigMergeSummary): str
 
 function writeArtifact(path: string, body: string, what: string): void {
   try {
+    mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, body);
   } catch (error) {
     throw new CliError(`cannot write ${what} to ${path}: ${(error as Error).message}`);

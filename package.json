@@ -1,6 +1,6 @@
 {
   "name": "@aionsec/athanor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Raw security telemetry in, scored candidates out — a deterministic distillation pipeline for Zeek and Sysmon logs.",
   "keywords": [
     "security",
@@ -36,10 +36,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
+    "build": "node scripts/build.mjs",
     "smoke": "bash scripts/smoke-dist.sh",
     "smoke:install": "bash scripts/smoke-install.sh",
-    "test": "node --import tsx --test 'test/**/*.test.ts'",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
